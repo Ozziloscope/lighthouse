@@ -1,0 +1,36 @@
+services:
+  lighthouse:
+    build: .
+    restart: unless-stopped
+    ports:
+      # Bound to localhost: put Caddy, nginx or cloudflared in front for HTTPS.
+      - "127.0.0.1:3000:3000"
+    environment:
+      # The address people type. Required once you are behind HTTPS.
+      # PUBLIC_URL: "https://desk.example.com"
+      # true once the site is served over HTTPS (recommended).
+      COOKIE_SECURE: "false"
+      # true when a reverse proxy or tunnel sits in front.
+      # TRUST_PROXY: "true"
+      # Cloudflare Tunnel only:
+      # CLIENT_IP_HEADER: "cf-connecting-ip"
+      # Optional: choose your own first-run setup code instead of reading it from the log.
+      # SETUP_TOKEN: "change-me-to-something-long"
+      TZ: "America/Chicago"
+    # Email and text alert settings (SMTP_*, SMS_PROVIDER, TWILIO_*) hold secrets:
+    # put them in a .env-style file next to this one, readable only by you, and load it here.
+    # See docs/ALERTS.md for every setting.
+    env_file:
+      - path: ./lighthouse-alerts.env
+        required: false
+    volumes:
+      - lighthouse-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  lighthouse-data:

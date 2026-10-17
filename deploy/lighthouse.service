@@ -1,0 +1,44 @@
+# systemd unit for Lighthouse Service Desk.
+# Install: sudo cp deploy/lighthouse.service /etc/systemd/system/ && sudo systemctl daemon-reload
+[Unit]
+Description=Lighthouse Service Desk
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lighthouse
+Group=lighthouse
+WorkingDirectory=/opt/lighthouse
+EnvironmentFile=/etc/lighthouse/lighthouse.env
+ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning /opt/lighthouse/server.js
+Restart=on-failure
+RestartSec=3
+# Label log lines "lighthouse" (not "node") in journalctl and syslog.
+SyslogIdentifier=lighthouse
+
+# Sandboxing: the service can write only to its data directory.
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/lighthouse
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallArchitectures=native
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

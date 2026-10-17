@@ -1,0 +1,6 @@
+[Unit]
+Description=Back up the Lighthouse database
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/lighthouse-backup

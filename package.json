@@ -1,0 +1,16 @@
+{
+  "name": "lighthouse-service-desk",
+  "version": "1.4.0",
+  "description": "Self-hosted service desk: tickets with SLA tracking, Asana-style projects, admin-defined access levels, and email/text alerts.",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server.js",
+    "test": "node --disable-warning=ExperimentalWarning --test --test-concurrency=1 \"tests/*.test.js\"",
+    "backup": "node --disable-warning=ExperimentalWarning scripts/backup.js",
+    "reset-password": "node --disable-warning=ExperimentalWarning scripts/reset-password.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}
