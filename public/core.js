@@ -34,6 +34,7 @@ const S = {
   groups: new Map(),        // resolver groups, by id
   C: null,                  // fixed lists from the server (priorities, statuses, limits...)
   alertChannels: {},        // which alert channels the server has set up
+  announcements: [],        // banners showing right now (Settings > Announcements)
   tickets: new Map(),
   ticketsLoaded: false,
   tab: "tickets",
@@ -192,6 +193,7 @@ async function loadBootstrap() {
   S.me = data.me;
   S.C = data.constants;
   S.alertChannels = data.alertChannels || {};
+  S.announcements = data.announcements || [];
   S.users = new Map(data.users.map((u) => [u.id, u]));
   S.groups = new Map(data.groups.map((g) => [g.id, g]));
   applyTheme(S.me.theme);
@@ -320,6 +322,43 @@ function passwordFormHTML(isForced) {
     <div class="btns"><button class="btn primary" type="submit">Save password</button></div></form>`;
 }
 
+// ---------- announcements ----------
+// Banners across the top of every page. Red ("action required") can't be dismissed; a yellow service
+// advisory can be hidden in this browser, and comes back if it's edited.
+const ANNOUNCEMENT_LOOK = {
+  action: { label: "Action required", role: "alert", icon: '<path d="M10 3 18 17H2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 8v4M10 14.5v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>' },
+  advisory: { label: "Service advisory", role: "status", icon: '<circle cx="10" cy="10" r="7.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 9v5M10 6v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>' },
+};
+const DISMISSED_STORAGE_KEY = "lh.dismissedAnnouncements";
+const dismissKey = (a) => `${a.id}:${a.updatedAt}`;
+function dismissedAnnouncements() {
+  try { return new Set(JSON.parse(localStorage.getItem(DISMISSED_STORAGE_KEY) || "[]")); } catch { return new Set(); }
+}
+function dismissAnnouncement(id) {
+  const announcement = S.announcements.find((a) => a.id === id);
+  if (!announcement || announcement.severity === "action") return;
+  const current = S.announcements.map(dismissKey); // forget keys for announcements that are gone
+  const kept = [...dismissedAnnouncements()].filter((key) => current.includes(key));
+  try { localStorage.setItem(DISMISSED_STORAGE_KEY, JSON.stringify([...kept, dismissKey(announcement)])); } catch { /* storage blocked: it just won't stay hidden */ }
+  renderAnnouncements();
+}
+function announcementHTML(a) {
+  const look = ANNOUNCEMENT_LOOK[a.severity];
+  return `<div class="announce ${a.severity}" role="${look.role}">
+    <svg class="announce-icon" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">${look.icon}</svg>
+    <div class="announce-text"><span class="announce-label">${look.label}</span><b>${esc(a.title)}</b>${a.message ? `<span class="announce-message">${esc(a.message)}</span>` : ""}</div>
+    ${a.severity === "advisory" ? `<button class="announce-dismiss" data-dismissannouncement="${a.id}" aria-label="Hide this advisory">×</button>` : ""}</div>`;
+}
+let lastAnnouncementsHTML = null;
+function renderAnnouncements() {
+  const region = $("#announcements");
+  if (!region) return;
+  const hidden = dismissedAnnouncements();
+  const html = S.announcements.filter((a) => a.severity === "action" || !hidden.has(dismissKey(a))).map(announcementHTML).join("");
+  // Only touch the page when something changed, so the slow pulse isn't restarted on every refresh.
+  if (html !== lastAnnouncementsHTML || region.innerHTML !== html) { region.innerHTML = html; lastAnnouncementsHTML = html; }
+}
+
 // ---------- the shell: app bar with tabs, left rail, main area ----------
 const TAB_ICONS = {
   tickets: '<path d="M3 8V6.5a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1V8a2 2 0 0 0 0 4v1.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V12a2 2 0 0 0 0-4Z"/><path d="M12 7v8" stroke-dasharray="1.5 1.5"/>',
@@ -339,10 +378,13 @@ function render() {
     return;
   }
   if (!$(".app")) {
+    lastAnnouncementsHTML = null;
     $("#root").innerHTML = `<div class="app">
+      <div class="announcements" id="announcements" aria-label="Announcements"></div>
       <header class="appbar">${brandHTML()}<nav class="tabs" id="tabs" aria-label="Sections"></nav><div class="who" id="who"></div></header>
       <div class="workspace"><aside class="rail" id="rail"></aside><main class="main" id="main"></main></div></div>`;
   }
+  renderAnnouncements();
   $("#tabs").innerHTML = visibleModules().map(tabButtonHTML).join("");
   $("#who").innerHTML = `${avatar(S.me.id, "lg")}<div class="who-text"><div class="n">${esc(S.me.name)}</div><div class="sub">${esc(S.me.accessLevelName)} · <button data-logout>Sign out</button></div></div>`;
 
@@ -444,6 +486,7 @@ document.addEventListener("click", async (event) => {
   if (!element) return;
   const data = element.dataset;
   try {
+    if (data.dismissannouncement !== undefined) { event.preventDefault(); return dismissAnnouncement(Number(data.dismissannouncement)); }
     if (data.forgot !== undefined) { event.preventDefault(); return showForgotPassword(); }
     if (data.backtosignin !== undefined) { event.preventDefault(); return showSignIn(); }
     if (data.logout !== undefined) { await api("POST", "/api/logout").catch(() => {}); S.me = null; stopRefreshing(); showSignIn(); return; }
@@ -482,7 +525,7 @@ async function start() {
 
 window.LH = {
   S, $, esc, escapeHtml, toast, formatDateTime, shortDuration, isoDay, dueDateLabel, api, act,
-  can, isAdministrator, userName, initials, avatar, photoUrl, preparePhotoUpload, personHTML, peopleWhoCanTakeTickets, peopleWhoUseProjects, personOptions,
+  can, isAdministrator, userName, initials, avatar, photoUrl, preparePhotoUpload, announcementHTML, personHTML, peopleWhoCanTakeTickets, peopleWhoUseProjects, personOptions,
   loadBootstrap, loadTickets, register, go, currentView, render, renderPanel, openPanel, closePanel, passwordFormHTML, applyTheme,
 };
 document.addEventListener("DOMContentLoaded", start);

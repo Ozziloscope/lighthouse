@@ -491,3 +491,40 @@ img.av.photo{object-fit:cover;padding:0;background:var(--sunken)}
 .ticket-chips{display:flex;flex-wrap:wrap;gap:6px}
 .ticket-chip{max-width:420px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
 @media (max-width:640px){.ticket-link{flex-wrap:wrap}.ticket-link .relation{width:auto}}
+
+/* ---------- announcements: banners across the top of every page ---------- */
+:root{--ann-advisory:#fff4cc;--ann-advisory-strong:#ffe28a;--ann-advisory-edge:#c99700;--ann-advisory-ink:#6b4d00;
+  --ann-action:#fde4e2;--ann-action-strong:#f8b9b3;--ann-action-edge:#c62f2f;--ann-action-ink:#8f1d1d}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--ann-advisory:#332908;--ann-advisory-strong:#5a470c;--ann-advisory-edge:#e3b341;--ann-advisory-ink:#f5d67a;
+  --ann-action:#3a1213;--ann-action-strong:#6b1f20;--ann-action-edge:#ef6464;--ann-action-ink:#ffb3ad}}
+:root[data-theme="dark"]{--ann-advisory:#332908;--ann-advisory-strong:#5a470c;--ann-advisory-edge:#e3b341;--ann-advisory-ink:#f5d67a;
+  --ann-action:#3a1213;--ann-action-strong:#6b1f20;--ann-action-edge:#ef6464;--ann-action-ink:#ffb3ad}
+.announcements{display:flex;flex-direction:column}
+.announcements:empty{display:none}
+.announce{display:flex;align-items:flex-start;gap:12px;padding:10px 18px;border-bottom:2px solid;color:var(--ink);font-size:14px;line-height:1.45}
+.announce.advisory{background:var(--ann-advisory);border-color:var(--ann-advisory-edge);animation:pulse-advisory 3.2s ease-in-out infinite}
+.announce.action{background:var(--ann-action);border-color:var(--ann-action-edge);animation:pulse-action 2.4s ease-in-out infinite}
+@keyframes pulse-advisory{0%,100%{background-color:var(--ann-advisory)}50%{background-color:var(--ann-advisory-strong)}}
+@keyframes pulse-action{0%,100%{background-color:var(--ann-action)}50%{background-color:var(--ann-action-strong)}}
+.announce-icon{flex:none;margin-top:2px}
+.announce.advisory .announce-icon,.announce.advisory .announce-label{color:var(--ann-advisory-ink)}
+.announce.action .announce-icon,.announce.action .announce-label{color:var(--ann-action-ink)}
+.announce-text{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;min-width:0;flex:1}
+.announce-label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.announce-message{flex-basis:100%;white-space:pre-wrap;overflow-wrap:anywhere}
+.announce-dismiss{all:unset;cursor:pointer;flex:none;padding:0 6px;font-size:18px;line-height:1.2;color:var(--ann-advisory-ink);border-radius:4px}
+.announce-dismiss:focus-visible{outline:2px solid var(--ann-advisory-edge)}
+@media (prefers-reduced-motion: reduce){.announce.advisory,.announce.action{animation:none}}
+/* Settings > Announcements */
+.severity-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.severity-choice{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;cursor:pointer}
+.severity-choice:has(input:checked){border-width:2px;padding:9px 11px}
+.severity-choice.advisory:has(input:checked){border-color:var(--ann-advisory-edge);background:var(--ann-advisory)}
+.severity-choice.action:has(input:checked){border-color:var(--ann-action-edge);background:var(--ann-action)}
+.severity-choice span{display:flex;flex-direction:column;gap:2px}
+.announce-preview{border:1px dashed var(--line);border-radius:var(--r);overflow:hidden}
+.announce-list{display:flex;flex-direction:column;gap:8px}
+.announce-item{display:flex;gap:12px;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;flex-wrap:wrap}
+.announce-item .sev{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:1px 8px;border-radius:999px;border:1px solid}
+.announce-item .sev.advisory{color:var(--ann-advisory-ink);border-color:var(--ann-advisory-edge);background:var(--ann-advisory)}
+.announce-item .sev.action{color:var(--ann-action-ink);border-color:var(--ann-action-edge);background:var(--ann-action)}

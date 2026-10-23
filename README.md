@@ -62,6 +62,7 @@ It has **no dependencies**. Lighthouse uses only what ships with Node.js 22.13+:
 - People can pause all their alerts. Admins get a delivery log with the exact error for anything that failed, and a one-click retry.
 
 ### Everywhere
+- **Announcements** (Settings → Announcements): a banner across the top of every page for everyone signed in. **Yellow** service advisories pulse gently and can be hidden; **red** action-required notices pulse and stay until they end. Post now or schedule a start and end time; they appear within about 15 seconds. Needs the *Post announcements* permission (Administrators have it).
 - **Light, dark, or match the device**, chosen per person under **Settings → Appearance** and saved to their account. Every screen works on phones.
 - Links such as `/#ticket-1042`, `/#task-88` and `/#project-3` open directly to the right item.
 
@@ -96,6 +97,7 @@ The permissions you can tick:
 | | Create projects | Start new projects (the creator owns them). |
 | | Manage every project | Archive, delete or re-own any project, not just their own. |
 | Admin | Manage user accounts | Add people, reset passwords, deactivate, choose access levels. |
+| | Post announcements | Post, edit and end the banners at the top of every page. |
 | | See the alert delivery log | Every email and text sent, with retry. |
 
 **Safety rules**, enforced on the server:
@@ -218,11 +220,13 @@ For an internet-facing desk, the biggest additional step is putting **Cloudflare
 | Attached files | Stored in `DATA_DIR/attachments`, next to the database. The nightly backup script saves them as `attachments-<date>.tar.gz` alongside the database copy. |
 | Encryption key | `DATA_DIR/lighthouse.key` decrypts the mail and Twilio passwords saved in the app. Backups of the database don't include it, on purpose. Keep a copy somewhere safe (a password manager), or re-enter those passwords after restoring onto a new server. |
 | Locked out of every admin | `npm run reset-password -- <username> "temporary-password" --admin` (moves that person to Administrator) |
-| Run the tests | `npm test` (75 automated tests; no network needed) |
+| Run the tests | `npm test` (81 automated tests; no network needed) |
 | Check alerts | **Settings → Alert delivery** shows channel status, 24-hour counts and every send with its error. |
 | View security events | `journalctl -u lighthouse -o cat \| grep '^{"ts"'` |
 | Health check | `GET /healthz` returns `ok`. |
 | Upgrade | Back up, replace the code, and restart. Schema changes apply automatically. |
+
+**Upgrading from 1.5 to 1.6:** `git pull` and restart. Administrators can post announcements straight away; tick *Post announcements* on any other level that should.
 
 **Upgrading from 1.4 to 1.5:** pull or unpack the new version and restart (`cd /opt/lighthouse && git pull && systemctl restart lighthouse`). Existing tickets keep their categories; the new ones appear in the menu. Nothing to configure, but emailed resets need email set up under Settings → Alert setup.
 
@@ -266,7 +270,7 @@ lib/
   http.js              JSON, cookies, static files, security headers, input checks
   rate-limit.js, audit.js, project-templates.js
 routes/                one file per area: auth, me, users, access-levels, groups, tickets, projects, alerts,
-                       desk-settings, photos, ticket-links, ticket-tags, attachments
+                       desk-settings, photos, ticket-links, ticket-tags, attachments, announcements
 alerts/                events.js (alert types), messages.js (wording), notify.js (who gets what),
                        delivery.js (outbox and retries), mailer.js (SMTP client), sms.js (Twilio / webhook)
 public/                index.html, core.js (shell, tabs, theme, photos, forgot password), tickets.js,

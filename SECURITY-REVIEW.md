@@ -26,6 +26,8 @@ This report has five parts:
 | R-8 | **Longer request timeout.** Raised from 30 to 120 seconds so large files can upload over slow connections. | Low | Header timeout stays at 20 seconds, JSON bodies stay capped at 200 KB, and Cloudflare (when used) absorbs slow-client attacks before they reach the server. |
 | R-9 | **Tags.** | Info | Restricted to lower-case letters, digits, dot, dash and underscore, 30 characters, 15 per ticket. Requesters can tag only while raising a ticket; later changes need *Work tickets*. Tag suggestions only include tags on tickets the person can see. |
 
+**Announcements (1.6):** posting needs the grantable *Post announcements* permission and every post, edit, end and delete is audited. Banner text is shown as plain text (escaped, never HTML), and announcements are only sent to signed-in people, never shown on the public sign-in page.
+
 **Backups:** attachments are not inside the database file. The backup script now archives `DATA_DIR/attachments` next to each database copy. On Windows, copy `data\attachments` yourself (docs/WINDOWS.md).
 
 ---

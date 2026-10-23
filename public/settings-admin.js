@@ -541,5 +541,93 @@ const deliveryPage = {
   },
 };
 
-LH.addSettingsPages(usersPage, levelsPage, slaPage, alertSetupPage, deliveryPage);
+// ========== Announcements ==========
+// Banners everyone sees at the top of the page. Yellow = service advisory, red = action required.
+const AN = { list: null, editingId: null }; // editingId: an announcement id, or "new"
+const SEVERITY_CHOICES = [
+  { value: "advisory", label: "Service advisory", hint: "Yellow. Planned maintenance, a known issue, something to be aware of. People can hide it." },
+  { value: "action", label: "Action required", hint: "Red. Something everyone must act on now. It can't be hidden." },
+];
+const STATE_LABELS = { live: "Showing now", scheduled: "Scheduled", ended: "Ended" };
+// <input type="datetime-local"> works in local time without a time zone: "2026-10-23T14:30".
+const twoDigits = (n) => String(n).padStart(2, "0");
+const toLocalInput = (ms) => { if (!ms) return ""; const d = new Date(ms); return `${d.getFullYear()}-${twoDigits(d.getMonth() + 1)}-${twoDigits(d.getDate())}T${twoDigits(d.getHours())}:${twoDigits(d.getMinutes())}`; };
+const fromLocalInput = (value) => (value ? new Date(value).getTime() : null);
+
+function announcementFormHTML() {
+  const editing = AN.editingId === "new" ? { severity: "advisory", title: "", message: "" } : AN.list.find((a) => a.id === AN.editingId);
+  if (!editing) return "";
+  const choice = (c) => `<label class="severity-choice ${c.value}"><input type="radio" name="an_severity" value="${c.value}" ${editing.severity === c.value ? "checked" : ""}>
+    <span><b>${c.label}</b><span class="sub">${c.hint}</span></span></label>`;
+  return `<form class="formcard" id="announcementForm"><h2>${AN.editingId === "new" ? "New announcement" : "Edit announcement"}</h2>
+    <div class="severity-choices" role="radiogroup" aria-label="Kind of announcement">${SEVERITY_CHOICES.map(choice).join("")}</div>
+    <label class="f">Title<input id="an_title" required maxlength="${S.C.MAX_ANNOUNCEMENT_TITLE}" value="${esc(editing.title)}" placeholder="e.g. Core switch maintenance tonight 22:00 to 23:00"></label>
+    <label class="f">Details (optional)<textarea id="an_message" rows="3" maxlength="${S.C.MAX_ANNOUNCEMENT_MESSAGE}" placeholder="What's happening, what people should do, who to contact.">${esc(editing.message)}</textarea></label>
+    <div class="grid2">
+      <label class="f">Start showing<input id="an_starts" type="datetime-local" value="${esc(toLocalInput(editing.startsAt))}"><span class="note">Leave empty to show it straight away.</span></label>
+      <label class="f">Stop showing<input id="an_ends" type="datetime-local" value="${esc(toLocalInput(editing.endsAt))}"><span class="note">Leave empty to keep it up until you end it.</span></label>
+    </div>
+    <div class="f"><span>Preview</span><div class="announce-preview" id="an_preview"></div></div>
+    <div class="btns end"><button type="button" class="btn" data-cancelannouncement>Cancel</button><button class="btn primary" type="submit">${AN.editingId === "new" ? "Post announcement" : "Save changes"}</button></div></form>`;
+}
+function updateAnnouncementPreview() {
+  const preview = $("#an_preview");
+  if (!preview) return;
+  const severity = document.querySelector('input[name="an_severity"]:checked')?.value || "advisory";
+  preview.innerHTML = LH.announcementHTML({ id: 0, severity, title: $("#an_title").value || "Your title here", message: $("#an_message").value }).replace(/<button[^>]*>×<\/button>/, "");
+}
+function announcementItemHTML(a) {
+  const when = a.state === "scheduled" ? `starts ${formatDateTime(a.startsAt)}` : a.endsAt ? `${a.state === "ended" ? "ended" : "until"} ${formatDateTime(a.endsAt)}` : `since ${formatDateTime(a.startsAt)}`;
+  const actions = [
+    a.state !== "ended" ? `<button class="btn sm" data-editannouncement="${a.id}">Edit</button>` : "",
+    a.state !== "ended" ? `<button class="btn sm" data-endannouncement="${a.id}">End now</button>` : "",
+    `<button class="btn sm danger" data-deleteannouncement="${a.id}">Delete</button>`,
+  ].join("");
+  return `<div class="announce-item"><div><span class="sev ${a.severity}">${a.severity === "action" ? "Action required" : "Advisory"}</span> <b>${esc(a.title)}</b>
+    <div class="sub">${STATE_LABELS[a.state]} · ${esc(when)} · posted by ${esc(userName(a.createdBy) || "someone")}</div></div><span class="btns">${actions}</span></div>`;
+}
+const loadAnnouncements = async () => { AN.list = (await api("GET", "/api/announcements/manage")).announcements; };
+const announcementsPage = {
+  key: "announcements", label: "Announcements", section: "Admin",
+  isVisible: () => can("announcements.manage"),
+  load: loadAnnouncements,
+  holdsForm: () => !!$("#announcementForm"),
+  reset: () => { AN.editingId = null; },
+  html() {
+    if (!AN.list) return `<div class="topbar"><h1>Announcements</h1></div><div class="tablewrap"><div class="empty">Loading…</div></div>`;
+    setTimeout(updateAnnouncementPreview);
+    const groups = ["live", "scheduled", "ended"].map((state) => ({ state, items: AN.list.filter((a) => a.state === state) })).filter((g) => g.items.length);
+    return `<div class="topbar"><h1>Announcements</h1>${AN.editingId ? "" : '<button class="btn primary" data-newannouncement>New announcement</button>'}</div>
+      <p class="note lead">Announcements show across the top of every page for everyone who is signed in, within about 15 seconds of posting. Yellow service advisories pulse gently and can be hidden; red action-required notices pulse and stay until they end.</p>
+      ${announcementFormHTML()}
+      ${groups.length ? groups.map((g) => `<section class="settings-card"><h2>${STATE_LABELS[g.state]}</h2><div class="announce-list">${g.items.map(announcementItemHTML).join("")}</div></section>`).join("")
+        : '<div class="tablewrap"><div class="empty"><strong>No announcements yet</strong><span>Post one for planned maintenance, an outage, or anything everyone needs to know.</span></div></div>'}`;
+  },
+  async onSubmit(form) {
+    if (form.id !== "announcementForm") return false;
+    const body = {
+      severity: document.querySelector('input[name="an_severity"]:checked').value,
+      title: $("#an_title").value, message: $("#an_message").value,
+      startsAt: fromLocalInput($("#an_starts").value) ?? Date.now(), endsAt: fromLocalInput($("#an_ends").value),
+    };
+    if (AN.editingId === "new") await act(() => api("POST", "/api/announcements", body), "Announcement posted");
+    else await act(() => api("PATCH", "/api/announcements/" + AN.editingId, body), "Announcement saved");
+    AN.editingId = null;
+    await Promise.all([loadAnnouncements(), LH.loadBootstrap()]);
+    rebuild(); return true;
+  },
+  async onClick(element, data) {
+    if (data.newannouncement !== undefined) { AN.editingId = "new"; rebuild(); $("#an_title")?.focus(); return true; }
+    if (data.editannouncement !== undefined) { AN.editingId = Number(data.editannouncement); rebuild(); window.scrollTo(0, 0); return true; }
+    if (data.cancelannouncement !== undefined) { AN.editingId = null; rebuild(); return true; }
+    const change = async (call, message) => { await act(call, message); await Promise.all([loadAnnouncements(), LH.loadBootstrap()]); LH.render(); };
+    if (data.endannouncement !== undefined) { await change(() => api("PATCH", "/api/announcements/" + data.endannouncement, { end: true }), "Announcement ended"); return true; }
+    if (data.deleteannouncement !== undefined) { await change(() => api("DELETE", "/api/announcements/" + data.deleteannouncement), "Announcement deleted"); return true; }
+    return false;
+  },
+  onInput(element) { if (["an_title", "an_message"].includes(element.id)) { updateAnnouncementPreview(); return true; } return false; },
+  onChange(element) { if (element.name === "an_severity") { updateAnnouncementPreview(); return true; } return false; },
+};
+
+LH.addSettingsPages(usersPage, levelsPage, slaPage, announcementsPage, alertSetupPage, deliveryPage);
 })();
