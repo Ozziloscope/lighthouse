@@ -71,6 +71,8 @@ Run these in PowerShell from `C:\Lighthouse\lighthouse`:
 
 The file `data\lighthouse.key` encrypts the mail and Twilio passwords you enter under Settings → Alert setup. Backups don't include it. Keep a copy somewhere safe, or re-enter those passwords after restoring on a different PC.
 
+Files attached to tickets are in `data\attachments`. `npm run backup` copies only the database, so copy that folder too (for example with File Explorer, or `robocopy data\attachments C:\Backups\attachments /MIR`).
+
 To restore from a backup:
 
 1. Stop Lighthouse (end `lighthouse.exe` or stop the scheduled task).

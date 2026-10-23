@@ -21,11 +21,19 @@ DATA_DIR="$DATA_DIR" node --disable-warning=ExperimentalWarning "$APP_DIR/script
 gzip -9 "$OUT"
 echo "Backup written: $OUT.gz"
 
+# Files attached to tickets live next to the database, not inside it.
+FILES_OUT="$BACKUP_DIR/attachments-$STAMP.tar.gz"
+if [ -d "$DATA_DIR/attachments" ] && [ -n "$(ls -A "$DATA_DIR/attachments" 2>/dev/null)" ]; then
+  tar -C "$DATA_DIR" -czf "$FILES_OUT" attachments && echo "Attachments written: $FILES_OUT"
+fi
+
 if [ -n "${S3_URI:-}" ]; then
   aws s3 cp "$OUT.gz" "$S3_URI/" --only-show-errors && echo "Copied to $S3_URI"
+  [ -f "$FILES_OUT" ] && aws s3 cp "$FILES_OUT" "$S3_URI/" --only-show-errors
 fi
 if [ -n "${AZ_CONTAINER_URL:-}" ]; then
   azcopy login --identity >/dev/null && azcopy copy "$OUT.gz" "$AZ_CONTAINER_URL/" --log-level=ERROR >/dev/null && echo "Copied to $AZ_CONTAINER_URL"
+  [ -f "$FILES_OUT" ] && azcopy copy "$FILES_OUT" "$AZ_CONTAINER_URL/" --log-level=ERROR >/dev/null
 fi
 
-find "$BACKUP_DIR" -name 'lighthouse-*.db.gz' -mtime +"$KEEP_DAYS" -delete
+find "$BACKUP_DIR" \( -name 'lighthouse-*.db.gz' -o -name 'attachments-*.tar.gz' \) -mtime +"$KEEP_DAYS" -delete

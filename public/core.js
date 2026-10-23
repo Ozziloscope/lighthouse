@@ -269,8 +269,32 @@ function showSignIn(message = "") {
     <label class="f">Password<input id="l_pw" type="password" autocomplete="current-password" required></label>
     <p class="err" id="l_err">${esc(message)}</p>
     <button class="btn primary" type="submit">Sign in</button>
-    <p class="note">No account? Ask a desk admin to create one for you.</p></form></div>`;
+    <p class="note"><button type="button" class="linkbtn" data-forgot>Forgot your password?</button> · No account? Ask a desk admin to create one for you.</p></form></div>`;
   $("#l_username").focus();
+}
+// "Forgot password?": emails a one-time passphrase to the address on the account (see lib/password-reset.js).
+function showForgotPassword() {
+  $("#root").innerHTML = `<div class="auth"><form id="forgotForm">${brandHTML()}<h1>Reset your password</h1>
+    <p class="note">Enter your username or the email address on your account. If the account has an email address on file, we'll send it a temporary passphrase to sign in with.</p>
+    <label class="f">Username or email<input id="f_identifier" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+    <p class="err" id="f_err"></p><div class="banner" id="f_done" hidden></div>
+    <button class="btn primary" type="submit" id="f_submit">Email me a passphrase</button>
+    <p class="note"><button type="button" class="linkbtn" data-backtosignin>Back to sign in</button> · No email on your account? Ask a desk admin to reset your password.</p></form></div>`;
+  $("#f_identifier").focus();
+}
+async function submitForgotPassword() {
+  const button = $("#f_submit");
+  button.disabled = true;
+  try {
+    const result = await api("POST", "/api/password-reset", { identifier: $("#f_identifier").value });
+    $("#f_err").textContent = "";
+    $("#f_done").textContent = result.message;
+    $("#f_done").hidden = false;
+    button.textContent = "Sent";
+  } catch (error) {
+    $("#f_err").textContent = error.message;
+    button.disabled = false;
+  }
 }
 function showFirstRunSetup() {
   $("#root").innerHTML = `<div class="auth"><form id="setupForm">${brandHTML()}<h1>Set up your desk</h1>
@@ -286,7 +310,7 @@ function showFirstRunSetup() {
 }
 function passwordFormHTML(isForced) {
   const heading = isForced
-    ? `${brandHTML()}<h1>Choose a new password</h1><p class="note">An admin gave you a temporary password. Pick your own before continuing.</p>`
+    ? `${brandHTML()}<h1>Choose a new password</h1><p class="note">You signed in with a temporary password or passphrase. Pick your own before continuing. Under "Current password", enter the one you just signed in with.</p>`
     : "<h2>Change password</h2>";
   return `<form id="pwForm" class="${isForced ? "" : "formcard"}">${heading}
     <label class="f">Current password<input id="p_cur" type="password" required autocomplete="current-password"></label>
@@ -411,6 +435,7 @@ document.addEventListener("submit", async (event) => {
   if (form.id === "loginForm") return submitSignIn();
   if (form.id === "setupForm") return submitFirstRunSetup();
   if (form.id === "pwForm") return submitPasswordChange();
+  if (form.id === "forgotForm") return submitForgotPassword();
   try { await passToModules("onSubmit", event, form); } catch { /* the toast already explained */ }
 });
 
@@ -419,6 +444,8 @@ document.addEventListener("click", async (event) => {
   if (!element) return;
   const data = element.dataset;
   try {
+    if (data.forgot !== undefined) { event.preventDefault(); return showForgotPassword(); }
+    if (data.backtosignin !== undefined) { event.preventDefault(); return showSignIn(); }
     if (data.logout !== undefined) { await api("POST", "/api/logout").catch(() => {}); S.me = null; stopRefreshing(); showSignIn(); return; }
     if (data.tab !== undefined) { event.preventDefault(); return go(data.tab); }
     if (data.close !== undefined) { event.preventDefault(); return closePanel(); }

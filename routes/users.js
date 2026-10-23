@@ -101,6 +101,18 @@ module.exports = function registerUserRoutes(app) {
     return { user: people.forAccountManagers(getUserById(target.id)) };
   });
 
+  // Emails the person a one-time passphrase instead of showing a temporary password on screen.
+  route("POST", "/api/users/:id/email-passphrase", async (request) => {
+    requirePermission(request, "users.manage");
+    const target = getUserById(idFromPath(request.params.id)) ?? fail(STATUS.notFound, "User not found.");
+    if (target.id !== request.user.id) assertCanManagePerson(request.user, target);
+    let sentTo;
+    try { sentTo = await app.passwordReset.emailPassphrase(target, request.user.name); }
+    catch (error) { fail(STATUS.badRequest, `No email sent: ${error.message}`); }
+    audit("user.passphrase_emailed", request, { target: target.id });
+    return { sentTo };
+  });
+
   route("POST", "/api/users/:id/reset-password", async (request) => {
     requirePermission(request, "users.manage");
     const target = getUserById(idFromPath(request.params.id)) ?? fail(STATUS.notFound, "User not found.");

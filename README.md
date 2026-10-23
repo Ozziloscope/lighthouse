@@ -33,6 +33,11 @@ It has **no dependencies**. Lighthouse uses only what ships with Node.js 22.13+:
 - **Requesters always keep sight of their tickets.** Everyone has a *Raised by me* queue with every ticket they opened, open or closed, whatever their access level.
 - **Technician photos.** People add a photo under **Settings → My profile** (an account manager can also set one). The person who raised a ticket sees the photo and name of the technician working it.
 - **Queues:** Assigned to me, My groups, Unassigned, All open, Raised by me, and Resolved. A summary strip shows open, P1, unassigned and breached counts.
+- **Categories in groups:** *Data center* (server hardware, storage, network, power and cooling...), *Tech* for software and applications (Login Issue, Site Improvement, Feature Request, Software Issue), *Facilities* (Plumbing, Stock, Electrical, Carpentry, Capital Expenditure, Procurement, Property Maintenance, Other) and *General*.
+- **Tags** such as `#psu` or `#vendor-rma`, added when raising a ticket or later by whoever works it. Search with `#tag`, or click a tag to see every ticket that has it.
+- **File attachments:** screenshots, photos, logs, PDFs, up to 25 MB each. Anyone who can see a ticket can attach files, including the person who raised it. Pictures show as thumbnails.
+- **Linked tickets:** related to, duplicate of / duplicated by, blocks / blocked by. Each ticket shows the link from its own side.
+- **Linked projects:** a ticket can point at the projects it belongs to, and the project page lists its tickets.
 - **Resolver groups** have members, a lead, and their own counts.
 - **Project links.** A ticket can be turned into a project task ("Add to a project…"), and the ticket then lists its linked tasks.
 
@@ -61,6 +66,8 @@ It has **no dependencies**. Lighthouse uses only what ships with Node.js 22.13+:
 - Links such as `/#ticket-1042`, `/#task-88` and `/#project-3` open directly to the right item.
 
 ## Accounts and access levels
+
+**Forgot password?** On the sign-in page, anyone (Administrators included) can ask for a **temporary passphrase**, such as `maple-otter-quartz-lantern-42`, to be emailed to the address on their account. It works once, for 30 minutes, and leads straight to choosing a new password. Their old password keeps working until then, so nobody can lock someone out by requesting resets. Account managers can also send one from **Settings → Users → Email passphrase**. Email must be set up (Settings → Alert setup); without an email address on the account, an admin resets the password instead.
 
 **Accounts.** People sign in with a **username**, not an email address. An account manager adds each person under **Settings → Users** with a name, a username, an optional email (used only for alerts) and an **access level**. Lighthouse makes up a **temporary password** and shows it once, with a Copy button, so it can be handed over directly. At first sign-in the person must choose their own password. "Reset password" makes a new temporary password and signs the person out everywhere.
 
@@ -208,13 +215,16 @@ For an internet-facing desk, the biggest additional step is putting **Cloudflare
 |---|---|
 | Back up now | `npm run backup -- /path/to/copy.db`. On a server: `sudo systemctl start lighthouse-backup`. |
 | Restore | Stop the app, replace `lighthouse.db` (remove any `-wal`/`-shm` files), and start the app. See [LINUX-SERVER.md §10](docs/LINUX-SERVER.md#10-nightly-backups). |
+| Attached files | Stored in `DATA_DIR/attachments`, next to the database. The nightly backup script saves them as `attachments-<date>.tar.gz` alongside the database copy. |
 | Encryption key | `DATA_DIR/lighthouse.key` decrypts the mail and Twilio passwords saved in the app. Backups of the database don't include it, on purpose. Keep a copy somewhere safe (a password manager), or re-enter those passwords after restoring onto a new server. |
 | Locked out of every admin | `npm run reset-password -- <username> "temporary-password" --admin` (moves that person to Administrator) |
-| Run the tests | `npm test` (58 automated tests; no network needed) |
+| Run the tests | `npm test` (75 automated tests; no network needed) |
 | Check alerts | **Settings → Alert delivery** shows channel status, 24-hour counts and every send with its error. |
 | View security events | `journalctl -u lighthouse -o cat \| grep '^{"ts"'` |
 | Health check | `GET /healthz` returns `ok`. |
 | Upgrade | Back up, replace the code, and restart. Schema changes apply automatically. |
+
+**Upgrading from 1.4 to 1.5:** pull or unpack the new version and restart (`cd /opt/lighthouse && git pull && systemctl restart lighthouse`). Existing tickets keep their categories; the new ones appear in the menu. Nothing to configure, but emailed resets need email set up under Settings → Alert setup.
 
 **Upgrading from 1.3 to 1.4:** start 1.4 against the same `DATA_DIR`. Nothing to do: SLA targets start at the old fixed values, and email and text settings keep coming from the env file until you save them in the app. Confirmed phone numbers and alert addresses stay confirmed. Administrators automatically get the two new permissions; give *Change SLA targets* to other levels if you want.
 
@@ -227,7 +237,7 @@ For an internet-facing desk, the biggest additional step is putting **Cloudflare
 Every number and fixed list lives in one place, with a name that says what it is:
 
 - **SLA targets, email and text setup:** in the app (Settings → SLA targets, Settings → Alert setup). The starting SLA values are in `lib/constants.js`.
-- **Categories, statuses, length limits, rate limits, timeouts:** `lib/constants.js`.
+- **Categories (and their groups), statuses, length limits, file size limits, rate limits, timeouts:** `lib/constants.js` (`TICKET_CATEGORY_GROUPS` for categories).
 - **Which permissions exist and the starting access levels:** `lib/access.js`. (Day to day, change access levels in the app, not here.)
 - **Project templates** (sections and starter tasks): `lib/project-templates.js`.
 - **Which alerts exist and their defaults:** `alerts/events.js`.
@@ -250,18 +260,22 @@ lib/
   desk-settings.js     SLA targets and email/text setup saved in the app
   secrets.js           encrypts passwords saved in the app (key in DATA_DIR/lighthouse.key)
   photos.js            checks uploaded photos and strips their hidden metadata
+  password-reset.js    emailed one-time passphrases ("Forgot password?")
+  ticket-extras.js     reads a ticket's tags, links and files; tag rules
+  attachment-files.js  where attached files live on disk, and which ones are pictures
   http.js              JSON, cookies, static files, security headers, input checks
   rate-limit.js, audit.js, project-templates.js
 routes/                one file per area: auth, me, users, access-levels, groups, tickets, projects, alerts,
-                       desk-settings, photos
+                       desk-settings, photos, ticket-links, ticket-tags, attachments
 alerts/                events.js (alert types), messages.js (wording), notify.js (who gets what),
                        delivery.js (outbox and retries), mailer.js (SMTP client), sms.js (Twilio / webhook)
-public/                index.html, core.js (shell, tabs, theme, photos), tickets.js, projects.js,
+public/                index.html, core.js (shell, tabs, theme, photos, forgot password), tickets.js,
+                       ticket-extras.js (tags, files, links in the ticket panel), projects.js,
                        settings.js (My profile, My alerts, Appearance, Password), settings-admin.js, styles.css
 scripts/               backup.js, reset-password.js
 windows/               start-lighthouse.cmd / .ps1 (runs as lighthouse.exe)
 tests/                 npm test: accounts, access levels, tickets, projects, alerts, alert setup,
-                       SLA targets, photos, upgrade from 1.2
+                       SLA targets, photos, tags, links, attachments, password reset, upgrade from 1.2
 deploy/                systemd unit, env template, Caddyfile, backup script and timer
 docs/                  deployment guides and alert setup
 SECURITY-REVIEW.md     application security review

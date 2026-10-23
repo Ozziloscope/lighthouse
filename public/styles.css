@@ -463,3 +463,31 @@ img.av.photo{object-fit:cover;padding:0;background:var(--sunken)}
 .test-row{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:12px}
 #emailSetupForm,#smsSetupForm,#optionsSetupForm{max-width:900px}
 @media (max-width:640px){.sla-row{grid-template-columns:1fr}}
+
+/* ---------- tags ---------- */
+.tagchips{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.tagchip{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;background:var(--sunken);font-size:11.5px;line-height:1.6;max-width:100%}
+.tagchip button{background:none;border:0;color:var(--muted);font:inherit;cursor:pointer;padding:0 8px}
+.tagchip .tagchip-name:hover{color:var(--accent)}
+.tagchip .tagchip-x{padding:0 7px 0 0;font-size:13px}
+.tagchip .tagchip-x:hover{color:var(--bad)}
+.tagchip.active{padding-left:8px;border-color:var(--accent);background:var(--accent-soft);color:var(--ink);font-size:12.5px}
+.tagchip.active .tagchip-x{padding:0 6px}
+
+/* ---------- attached files ---------- */
+.filelist{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-direction:column;gap:6px}
+.file-row{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:var(--r);padding:6px 8px;min-width:0}
+.file-thumb img{display:block;width:44px;height:44px;object-fit:cover;border-radius:4px;background:var(--sunken)}
+.file-icon{display:grid;place-items:center;width:44px;height:44px;border-radius:4px;background:var(--sunken);font:600 10px var(--f-mono);color:var(--muted);flex:none}
+.file-main{display:flex;flex-direction:column;min-width:0;flex:1}
+.file-name{color:var(--ink);font-weight:500;overflow-wrap:anywhere}
+.file-name:hover{color:var(--accent)}
+
+/* ---------- linked tickets and projects ---------- */
+.ticket-link{display:flex;align-items:center;gap:8px;min-width:0}
+.ticket-link .relation{flex:none;width:92px}
+.ticket-link .linkrow{flex:1;min-width:0}
+.project-tickets{display:flex;flex-direction:column;gap:6px}
+.ticket-chips{display:flex;flex-wrap:wrap;gap:6px}
+.ticket-chip{max-width:420px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+@media (max-width:640px){.ticket-link{flex-wrap:wrap}.ticket-link .relation{width:auto}}

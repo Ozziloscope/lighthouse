@@ -14,11 +14,13 @@ const {
 } = require("../lib/constants");
 const { STATUS, fail, created, requiredTextField, textField, idFromPath, optionalId } = require("../lib/http");
 const { can } = require("../lib/access");
+const { cleanTagList } = require("../lib/ticket-extras");
+const { removeFile } = require("../lib/attachment-files");
 
 const isOpen = (status) => OPEN_TICKET_STATUSES.includes(status);
 
 module.exports = function registerTicketRoutes(app) {
-  const { route, one, all, run, db, audit, notify, getUserById, requireSignedIn, requirePermission, linkedTasksForTicket } = app;
+  const { route, one, all, run, db, audit, notify, ticketExtras, getUserById, requireSignedIn, requirePermission, linkedTasksForTicket } = app;
 
   // ---------- helpers ----------
   const toApi = (t) => ({
@@ -37,6 +39,9 @@ module.exports = function registerTicketRoutes(app) {
 
   const recordActivity = (ticketId, userId, type, { field = null, from = null, to = null, body = null } = {}, at = Date.now()) =>
     run("INSERT INTO activity (ticket_id, user_id, type, field, from_val, to_val, body, at) VALUES (?,?,?,?,?,?,?,?)", ticketId, userId, type, field, from, to, body, at);
+  // Shared with the routes for links, tags and attachments.
+  app.loadVisibleTicket = loadVisibleTicket;
+  app.recordActivity = recordActivity;
 
   // How a value reads in the ticket history ("from Ada to Ben", not "from 2 to 3").
   function readableValue(field, value) {
@@ -53,7 +58,8 @@ module.exports = function registerTicketRoutes(app) {
     const rows = can(request.user, "tickets.view_all")
       ? all("SELECT * FROM tickets ORDER BY id DESC LIMIT ?", MAX_TICKETS_PER_LIST)
       : all("SELECT * FROM tickets WHERE requester_id = ? ORDER BY id DESC LIMIT ?", request.user.id, MAX_TICKETS_PER_LIST);
-    return { tickets: rows.map(toApi), serverTime: Date.now() };
+    const tags = ticketExtras.tagsByTicket();
+    return { tickets: rows.map((t) => ({ ...toApi(t), tags: tags.get(t.id) || [] })), serverTime: Date.now() };
   });
 
   route("GET", "/api/tickets/:id", (request) => {
@@ -63,7 +69,15 @@ module.exports = function registerTicketRoutes(app) {
     const activity = all("SELECT * FROM activity WHERE ticket_id = ? ORDER BY at, id", ticket.id)
       .filter((a) => a.type !== "internal" || seesInternalNotes)
       .map((a) => ({ id: a.id, type: a.type, by: a.user_id, field: a.field, from: a.from_val, to: a.to_val, text: a.body, at: a.at }));
-    return { ticket: toApi(ticket), activity, linkedTasks: can(request.user, "projects.access") ? linkedTasksForTicket(ticket.id) : [] };
+    const usesProjects = can(request.user, "projects.access");
+    return {
+      ticket: { ...toApi(ticket), tags: ticketExtras.tagsOf(ticket.id) },
+      activity,
+      linkedTasks: usesProjects ? linkedTasksForTicket(ticket.id) : [],
+      linkedTickets: ticketExtras.linksOf(request.user, ticket.id),
+      linkedProjects: usesProjects ? ticketExtras.projectsOf(ticket.id) : [],
+      attachments: ticketExtras.attachmentsOf(ticket.id),
+    };
   });
 
   // ---------- raise ----------
@@ -77,15 +91,17 @@ module.exports = function registerTicketRoutes(app) {
     if (groupId && !groupExists(groupId)) fail(STATUS.badRequest, "That resolver group no longer exists.");
     const description = textField(body.description, MAX_LENGTH.ticketDescription, "Description");
     const asset = textField(body.asset, MAX_LENGTH.assetTag, "Asset");
+    const tags = cleanTagList(body.tags);
     const now = Date.now();
     const ticketId = db.transaction(() => {
       const id = run(`INSERT INTO tickets (title, description, priority, category, status, asset, group_id, requester_id, created_at, updated_at)
         VALUES (?,?,?,?, 'New', ?,?,?,?,?)`, title, description, priority, category, asset, groupId, request.user.id, now, now).lastInsertRowid;
+      for (const tag of tags) run("INSERT INTO ticket_tags (ticket_id, tag) VALUES (?,?)", id, tag);
       recordActivity(id, request.user.id, "created", {}, now);
       return id;
     })();
     notify.ticketCreated(ticketId, request.user.id);
-    return created({ ticket: toApi(one("SELECT * FROM tickets WHERE id = ?", ticketId)) });
+    return created({ ticket: { ...toApi(one("SELECT * FROM tickets WHERE id = ?", ticketId)), tags } });
   });
 
   // ---------- change fields ----------
@@ -206,8 +222,10 @@ module.exports = function registerTicketRoutes(app) {
   route("DELETE", "/api/tickets/:id", (request) => {
     requirePermission(request, "tickets.delete");
     const id = idFromPath(request.params.id);
+    const attachedFiles = all("SELECT storage_name FROM ticket_attachments WHERE ticket_id = ?", id).map((a) => a.storage_name);
     if (!run("DELETE FROM tickets WHERE id = ?", id).changes) fail(STATUS.notFound, "Ticket not found.");
-    audit("ticket.delete", request, { ticket: id });
+    attachedFiles.forEach(removeFile); // their database rows went with the ticket
+    audit("ticket.delete", request, { ticket: id, filesRemoved: attachedFiles.length });
     return { ok: true };
   });
 };

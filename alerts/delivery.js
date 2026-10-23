@@ -98,7 +98,7 @@ function createDelivery({ db, one, all, run, audit, senders, limits }) {
   }
 
   function retryFailed(outboxId) {
-    return run("UPDATE outbox SET status = 'pending', attempts = 0, next_attempt_at = ?, last_error = NULL WHERE id = ? AND status = 'failed' AND event NOT IN ('verify','test')", Date.now(), outboxId).changes > 0;
+    return run("UPDATE outbox SET status = 'pending', attempts = 0, next_attempt_at = ?, last_error = NULL WHERE id = ? AND status = 'failed' AND event NOT IN ('verify','test','password_reset')", Date.now(), outboxId).changes > 0;
   }
 
   function deleteOldHistory() {

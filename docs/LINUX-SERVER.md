@@ -223,6 +223,8 @@ sudo chown lighthouse:lighthouse /var/lib/lighthouse/lighthouse.db && sudo chmod
 sudo systemctl start lighthouse
 ```
 
+**Attached files** are backed up next to the database as `attachments-<date>.tar.gz`. To restore them, stop Lighthouse and run `sudo tar -C /var/lib/lighthouse -xzf /var/backups/lighthouse/attachments-YYYY-MM-DDTHHMMZ.tar.gz && sudo chown -R lighthouse:lighthouse /var/lib/lighthouse/attachments`.
+
 **The encryption key.** Passwords and tokens entered under Settings → Alert setup are encrypted with `/var/lib/lighthouse/lighthouse.key`. Backups contain the database but deliberately not this key, so an off-site backup on its own can't reveal them. Restoring on the same server keeps working, because the key is still there. On a new server, either copy the key back (keep a copy in your password manager: `sudo cat /var/lib/lighthouse/lighthouse.key`), or simply re-enter the mail and Twilio passwords in Settings → Alert setup.
 
 **Test a restore once after setup.** A backup you have never restored is a guess.

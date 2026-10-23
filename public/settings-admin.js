@@ -12,7 +12,7 @@ const rebuild = () => LH.rebuildSettingsPage();
 
 const PRIORITY_LABELS = { P1: "P1 Critical", P2: "P2 High", P3: "P3 Normal", P4: "P4 Low" };
 const HOURS_PER_DAY = 24;
-const SYSTEM_EVENT_LABELS = { verify: "Verification code", test: "Test message" };
+const SYSTEM_EVENT_LABELS = { verify: "Verification code", test: "Test message", password_reset: "Temporary passphrase" };
 const DELIVERY_STATUS_CLASS = { sent: "ok", failed: "bad", skipped: "off", pending: "" };
 
 // Shared by Users and Access levels: the list of levels and permissions.
@@ -75,7 +75,7 @@ function userRowHTML(person) {
     : `<span class="level-tag ${person.isAdministrator ? "admin" : ""}">${esc(person.accessLevelName)}</span>`;
   const actions = !manageable ? "" : U.confirmingResetFor === person.id
     ? `<span class="confirm inline"><span>Sign them out and make a new temporary password?</span><button class="btn sm" data-cancelreset>Cancel</button><button class="btn sm primary" data-confirmreset="${person.id}">Reset</button></span>`
-    : `<button class="btn sm" data-edituser="${person.id}">Edit</button><button class="btn sm" data-reset="${person.id}">Reset password</button><button class="btn sm ${person.active ? "danger" : ""}" data-active="${person.id}" data-to="${person.active ? 0 : 1}">${person.active ? "Deactivate" : "Reactivate"}</button>`;
+    : `<button class="btn sm" data-edituser="${person.id}">Edit</button><button class="btn sm" data-reset="${person.id}">Reset password</button>${person.email ? `<button class="btn sm" data-emailpassphrase="${person.id}" title="Email ${esc(person.email)} a one-time passphrase">Email passphrase</button>` : ""}<button class="btn sm ${person.active ? "danger" : ""}" data-active="${person.id}" data-to="${person.active ? 0 : 1}">${person.active ? "Deactivate" : "Reactivate"}</button>`;
   const flags = [!person.active ? "deactivated" : "", person.mustChangePassword && person.active ? "temporary password" : ""].filter(Boolean).join(" · ");
   return `<tr class="${person.active ? "" : "inactive"}">
     <td>${personHTML(person.id)}${flags ? `<div class="sub">${flags}</div>` : ""}</td>
@@ -133,6 +133,14 @@ const usersPage = {
       await LH.loadBootstrap(); rebuild(); return true;
     }
     if (data.reset !== undefined) { U.confirmingResetFor = Number(data.reset); LH.render(); return true; }
+    if (data.emailpassphrase !== undefined) {
+      element.disabled = true;
+      try {
+        const result = await act(() => api("POST", `/api/users/${data.emailpassphrase}/email-passphrase`));
+        toast(`Temporary passphrase sent to ${result.sentTo}. It works for 30 minutes.`);
+      } finally { element.disabled = false; }
+      return true;
+    }
     if (data.cancelreset !== undefined) { U.confirmingResetFor = null; LH.render(); return true; }
     if (data.confirmreset !== undefined) {
       const result = await act(() => api("POST", `/api/users/${data.confirmreset}/reset-password`), "Password reset");

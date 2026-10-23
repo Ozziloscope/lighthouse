@@ -1,11 +1,32 @@
 # Lighthouse Service Desk: application security review
 
-This report has four parts:
+This report has five parts:
 
+- **[Part 5](#part-5-version-15-password-reset-attachments-links-and-tags)** reviews version 1.5: emailed password resets, file attachments, links between tickets and projects, and tags.
 - **[Part 4](#part-4-version-14-settings-in-the-app-and-photos)** reviews version 1.4: email/text setup and SLA targets edited in the app, contact details saved before confirmation, and profile photos.
 - **[Part 3](#part-3-version-13-usernames-and-access-levels)** reviews version 1.3: username sign-in, server-issued temporary passwords, and admin-defined access levels.
 - **[Part 2](#part-2-version-12-projects-and-alerts)** reviews what version 1.2 added: Projects and email/text alerts.
 - **[Part 1](#part-1-original-review-version-11)** is the original review of the ticketing core, unchanged.
+
+---
+
+## Part 5: Version 1.5 (password reset, attachments, links and tags)
+
+**Date:** 23 October 2026
+
+| # | Topic | Severity | Status |
+|---|---|---|---|
+| R-1 | **Account takeover through "Forgot password?"** An emailed reset is only as strong as the passphrase and the mailbox. | High | **Mitigated.** The passphrase is 4 random words from a 282-word list plus a two-digit number (about 39 bits), generated with `crypto.randomInt`. Only its scrypt hash is stored, it expires after 30 minutes, works once, and sign-in attempts with it count against the normal throttles (10 per account and 50 per address every 15 minutes). Using it signs out every other session and forces a new password. |
+| R-2 | **Locking people out by requesting resets for them.** | Medium | **Fixed by design.** Requesting a reset changes nothing until the passphrase is used: the old password keeps working, and signing in with it cancels the pending passphrase. At most 3 reset emails per account and 10 requests per address are allowed each hour. |
+| R-3 | **Finding out who has an account.** | Medium | **Fixed.** The reply is word-for-word the same for unknown usernames, accounts without email, and real accounts, and the email is sent in the background, so response time doesn't differ either. Only the audit log records what happened. |
+| R-4 | **Passphrases leaking through logs.** | Medium | The delivery log stores "Temporary passphrase (hidden)" instead of the message, and failed reset emails can't be retried from the log (a retry would otherwise resend the placeholder). Tested. |
+| R-5 | **Malicious uploads** (HTML or scripts disguised as pictures, SVG, oversized files, path tricks). | High | **Mitigated.** Files are stored under random names in `DATA_DIR/attachments` (mode 600), never under the uploaded name; names are cleaned of folders and control characters. Only PNG, JPEG, GIF and WebP are ever shown in the page, and only when the file's own first bytes say so (the uploader's claimed type is ignored; SVG is never shown). Everything else is served as `application/octet-stream` with `Content-Disposition: attachment`. Every file response carries `nosniff` and `Content-Security-Policy: default-src 'none'; sandbox`. Uploads are streamed to disk and cut off at 25 MB; at most 50 files per ticket. Tested, including a script file claiming to be a PNG. |
+| R-6 | **Who can read and attach files.** | Medium | Exactly the people who can see the ticket. Attachment ids from other tickets return "not found". Removing a file needs the uploader or *Work tickets*. Deleting a ticket deletes its files from disk. |
+| R-7 | **Links revealing tickets.** A link to a ticket someone can't open would leak its title and status. | Medium | **Fixed.** Linked tickets (on tickets and on project pages) are filtered by the viewer's own ticket visibility. Changing links needs *Work tickets* (plus *Use projects* for project links). |
+| R-8 | **Longer request timeout.** Raised from 30 to 120 seconds so large files can upload over slow connections. | Low | Header timeout stays at 20 seconds, JSON bodies stay capped at 200 KB, and Cloudflare (when used) absorbs slow-client attacks before they reach the server. |
+| R-9 | **Tags.** | Info | Restricted to lower-case letters, digits, dot, dash and underscore, 30 characters, 15 per ticket. Requesters can tag only while raising a ticket; later changes need *Work tickets*. Tag suggestions only include tags on tickets the person can see. |
+
+**Backups:** attachments are not inside the database file. The backup script now archives `DATA_DIR/attachments` next to each database copy. On Windows, copy `data\attachments` yourself (docs/WINDOWS.md).
 
 ---
 

@@ -114,6 +114,7 @@ module.exports = function registerProjectRoutes(app) {
       canManage: canManageProject(request.user, project),
       sections: all("SELECT id, name, position FROM sections WHERE project_id = ? ORDER BY position, id", project.id),
       tasks: tasks.map((k) => ({ ...taskToApi(k), subtaskCount: subtaskCounts.get(k.id)?.total || 0, subtaskDone: subtaskCounts.get(k.id)?.done || 0, commentCount: commentCounts.get(k.id) || 0 })),
+      linkedTickets: app.ticketExtras.ticketsLinkedToProject(request.user, project.id),
     };
   });
 

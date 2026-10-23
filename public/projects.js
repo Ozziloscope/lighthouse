@@ -237,9 +237,17 @@ function projectHTML() {
     ${deleteConfirm}
     ${P.editingProject ? projectEditFormHTML(project) : ""}
     ${projectDetailsHTML(project, canManage, readOnly)}
+    ${linkedTicketsHTML(P.project.linkedTickets || [])}
     <div class="ptoolbar"><label class="chk"><input type="checkbox" id="pm_hidedone" ${P.hideCompleted ? "checked" : ""}> Hide completed tasks</label>
       <span class="note">${readOnly ? "" : "Drag tasks to reorder them or move them between sections."}</span></div>
     ${P.viewMode === "board" ? boardHTML() : listHTML()}`;
+}
+
+// Tickets linked to this project (from the ticket's panel: Projects > Link to a project).
+function linkedTicketsHTML(tickets) {
+  if (!tickets.length) return "";
+  const chip = (t) => `<button class="linkrow ticket-chip" data-open="${t.id}"><span class="pri ${t.priority}">${t.priority}</span><span class="mono">TKT-${t.id}</span><span class="ellip">${esc(t.title)}</span><span class="status s-${t.status.replace(/\s/g, "")}">${esc(t.status)}</span></button>`;
+  return `<div class="project-tickets"><div class="section-label">Linked tickets <span class="count">${tickets.length}</span></div><div class="ticket-chips">${tickets.map(chip).join("")}</div></div>`;
 }
 
 // ---------- sections, list and board ----------
