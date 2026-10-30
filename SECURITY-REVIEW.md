@@ -1,12 +1,27 @@
 # Lighthouse Service Desk: application security review
 
-This report has five parts:
+This report has five parts, plus a note on 1.7:
 
+- **[Version 1.7](#version-17-website-intake)** adds the private website-intake port.
 - **[Part 5](#part-5-version-15-password-reset-attachments-links-and-tags)** reviews version 1.5: emailed password resets, file attachments, links between tickets and projects, and tags.
 - **[Part 4](#part-4-version-14-settings-in-the-app-and-photos)** reviews version 1.4: email/text setup and SLA targets edited in the app, contact details saved before confirmation, and profile photos.
 - **[Part 3](#part-3-version-13-usernames-and-access-levels)** reviews version 1.3: username sign-in, server-issued temporary passwords, and admin-defined access levels.
 - **[Part 2](#part-2-version-12-projects-and-alerts)** reviews what version 1.2 added: Projects and email/text alerts.
 - **[Part 1](#part-1-original-review-version-11)** is the original review of the ticketing core, unchanged.
+
+---
+
+## Version 1.7: website intake
+
+**Date:** 30 October 2026 · Setup and API: [docs/WEBSITE-INTAKE.md](docs/WEBSITE-INTAKE.md)
+
+| # | Topic | Severity | Status |
+|---|---|---|---|
+| I-1 | **Exposing ticket creation to the internet.** The desk is published through the tunnel; an unauthenticated "create ticket" route on it would be reachable by anyone. | High | **Avoided by design.** Intake is a second listener on its own port (default 127.0.0.1:3001), off unless `INTAKE_TOKEN` is set. The desk's port has no intake routes (tested: a POST there gets 405). The docs say to keep the tunnel on `PORT` only and firewall the intake port to the form handler's address. |
+| I-2 | **Callers other than the form handler.** | High | Every call needs `Authorization: Bearer <INTAKE_TOKEN>` (at least 32 characters; compared as SHA-256 digests with `timingSafeEqual`). 10 wrong tokens per address per 15 minutes, then refused. Wrong tokens are audited (`intake.bad_token`); the token is never logged. |
+| I-3 | **Flooding the queue** if the website form is abused. | Medium | 30 website requests per hour desk-wide, on top of whatever the form handler enforces per visitor. All fields are length-capped and validated; links must be `http(s)`. |
+| I-4 | **Malicious files.** | Medium | Same storage as ticket attachments (random names, mode 600, always served as downloads). Only `.stl`, `.3mf`, `.step`, `.stp`; 50 MB each, streamed and cut off at the limit; 5 per request; only onto open website tickets within an hour of the request, so the token can't touch desk tickets (tested: 404). |
+| I-5 | **Requester contact details.** | Low | Name and email are stored in `intake_requests` and shown only to people with *See every ticket*. No account is created and Lighthouse sends the person nothing. Description text is escaped like every other ticket. |
 
 ---
 

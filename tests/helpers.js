@@ -17,6 +17,7 @@ const TEST_TWILIO_SID = "AC0123456789abcdef0123456789abcdef";
 const TEST_TWILIO_KEY_SID = "SK0123456789abcdef0123456789abcdef";
 const TEST_TWILIO_KEY_SECRET = "twilio-test-secret";
 const TEST_SETUP_CODE = "test-setup-code";
+const TEST_INTAKE_TOKEN = "test-intake-token-0123456789abcdef0123456789";
 const PHONE_TWILIO_REJECTS = "+15555550199";   // the fake Twilio answers "not a valid number" for this one
 const EMAIL_SMTP_REJECTS = "bounce@example.com"; // the fake mail server rejects this recipient
 const SMTP_LINE_END = "\r\n";
@@ -107,13 +108,16 @@ function startFakeTwilio() {
 //   withAlerts       connects it to the fake mail server and fake Twilio through environment variables.
 //   withFakeServers  starts the fakes but leaves email and texts off, so a test can set them up in the app.
 //                    (Only the env-only settings are filled in: the test certificate authority and the Twilio address.)
-async function startLighthouse({ withAlerts = false, withFakeServers = false, publicUrl = "" } = {}) {
+//   withIntake       turns on the private website-intake listener (lib/intake.js) with TEST_INTAKE_TOKEN;
+//                    3D print requests route to a group called "3D Printing", IT jobs to "IT Jobs".
+async function startLighthouse({ withAlerts = false, withFakeServers = false, withIntake = false, publicUrl = "" } = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "lighthouse-test-"));
   const needsFakes = withAlerts || withFakeServers;
   const mail = needsFakes ? await startFakeMailServer() : null;
   const twilio = needsFakes ? await startFakeTwilio() : null;
   Object.assign(process.env, {
     DATA_DIR: dataDir, PUBLIC_URL: publicUrl, SETUP_TOKEN: TEST_SETUP_CODE, ALERT_DAILY_HOUR: "0", TZ: process.env.TZ || "UTC",
+    ...(withIntake ? { INTAKE_TOKEN: TEST_INTAKE_TOKEN, INTAKE_PRINT_GROUP: "3D Printing", INTAKE_IT_GROUP: "IT Jobs" } : {}),
     ...(withFakeServers ? { SMTP_CA_FILE: path.join(FIXTURES, "test-smtp-cert.pem"), TWILIO_API_BASE: `http://127.0.0.1:${twilio.port}` } : {}),
     ...(withAlerts ? {
       SMTP_HOST: "localhost", SMTP_PORT: String(mail.port), SMTP_SECURE: "starttls", SMTP_USER: TEST_SMTP_USER, SMTP_PASS: TEST_SMTP_PASSWORD,
@@ -127,9 +131,14 @@ async function startLighthouse({ withAlerts = false, withFakeServers = false, pu
   const lighthouse = require("../lib/app");
   await new Promise((resolve) => lighthouse.server.listen(0, "127.0.0.1", resolve));
   const baseUrl = `http://127.0.0.1:${lighthouse.server.address().port}`;
+  let intakeUrl = null;
+  if (lighthouse.intakeServer) {
+    await new Promise((resolve) => lighthouse.intakeServer.listen(0, "127.0.0.1", resolve));
+    intakeUrl = `http://127.0.0.1:${lighthouse.intakeServer.address().port}`;
+  }
   return {
-    baseUrl, mail, twilio, dataDir, notify: lighthouse.notify, db: lighthouse.db,
-    stop() { lighthouse.server.close(); mail?.close(); twilio?.close(); console.log = originalLog; },
+    baseUrl, intakeUrl, mail, twilio, dataDir, notify: lighthouse.notify, db: lighthouse.db,
+    stop() { lighthouse.server.close(); lighthouse.intakeServer?.close(); mail?.close(); twilio?.close(); console.log = originalLog; },
   };
 }
 
@@ -186,6 +195,6 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 400)); // lets
 
 module.exports = {
   startLighthouse, setUpDesk, addPerson, Person, readMail, settle, startFakeMailServer, startFakeTwilio,
-  TEST_SETUP_CODE, PHONE_TWILIO_REJECTS, EMAIL_SMTP_REJECTS,
+  TEST_SETUP_CODE, TEST_INTAKE_TOKEN, PHONE_TWILIO_REJECTS, EMAIL_SMTP_REJECTS,
   TEST_SMTP_USER, TEST_SMTP_PASSWORD, TEST_TWILIO_SID, TEST_TWILIO_KEY_SID, TEST_TWILIO_KEY_SECRET,
 };

@@ -87,8 +87,10 @@ function createNotifier({ db, one, all, run, audit, config, deskSettings, getUse
 
   // ---------- reading tickets and tasks for messages ----------
   function ticketForMessage(id) {
-    const t = one(`SELECT t.*, g.name AS group_name, a.name AS assignee_name, r.name AS requester_name FROM tickets t
-      LEFT JOIN groups g ON g.id = t.group_id LEFT JOIN users a ON a.id = t.assignee_id LEFT JOIN users r ON r.id = t.requester_id WHERE t.id = ?`, id);
+    // Website requests (lib/intake.js) have no requester account; name the person from the form instead.
+    const t = one(`SELECT t.*, g.name AS group_name, a.name AS assignee_name, COALESCE(r.name, i.requester_name || ' (website)') AS requester_name FROM tickets t
+      LEFT JOIN groups g ON g.id = t.group_id LEFT JOIN users a ON a.id = t.assignee_id LEFT JOIN users r ON r.id = t.requester_id
+      LEFT JOIN intake_requests i ON i.ticket_id = t.id WHERE t.id = ?`, id);
     if (!t) return null;
     const dueAt = t.created_at + slaWindowMs(t.priority), now = Date.now();
     t.ref = `TKT-${t.id}`;

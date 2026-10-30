@@ -256,6 +256,11 @@ function linkedTasksHTML(ticket, draft) {
     : `<button class="btn sm self-start" data-linktask>Add to a project…</button>`;
   return `<div><div class="section-label">Project tasks</div>${list}${linker}</div>`;
 }
+// Someone without an account who asked through the website form: their name, and their email as a mailto link.
+function websiteRequesterHTML(requester) {
+  if (!requester) return "";
+  return `<span>${esc(requester.name)} <span class="sub">· website</span><br><a href="mailto:${esc(encodeURIComponent(requester.email).replace(/%40/g, "@"))}">${esc(requester.email)}</a></span>`;
+}
 function panelHTML() {
   if (!T.detail) return "";
   const ticket = T.detail.ticket, draft = T.drafts[ticket.id] || {}, sla = slaState(ticket);
@@ -278,7 +283,7 @@ function panelHTML() {
         <label class="f">Resolver group<select id="d_group" data-field="groupId" ${disabledUnless(canAssign)}>${groupOptions(ticket.groupId, "Unrouted")}</select></label>
         <label class="f">Assignee<select id="d_assignee" data-field="assigneeId" ${disabledUnless(canAssign)}><option value="">Unassigned</option>${assigneeChoices.map((id) => `<option value="${id}" ${ticket.assigneeId === id ? "selected" : ""}>${esc(userName(id))}${ticket.groupId && !groupMembers.includes(id) ? " (not in group)" : ""}</option>`).join("")}</select></label>
         <label class="f">Category<select id="d_cat" data-field="category" ${disabledUnless(canWork)}>${categoryOptionsHTML(ticket.category)}</select></label>
-        <div class="f readonly-field">Requester<div class="readonly-value">${personHTML(ticket.requesterId, "Unknown")}</div></div>
+        <div class="f readonly-field">Requester<div class="readonly-value">${websiteRequesterHTML(T.detail.websiteRequester) || personHTML(ticket.requesterId, "Unknown")}</div></div>
       </div>
       ${canTakeIt ? '<button class="btn self-start" data-takeit>Assign to me</button>' : ""}
       ${ticket.asset ? `<div><div class="section-label">Asset / location</div><div class="mono">${esc(ticket.asset)}</div></div>` : ""}

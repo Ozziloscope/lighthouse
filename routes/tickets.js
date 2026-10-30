@@ -70,8 +70,11 @@ module.exports = function registerTicketRoutes(app) {
       .filter((a) => a.type !== "internal" || seesInternalNotes)
       .map((a) => ({ id: a.id, type: a.type, by: a.user_id, field: a.field, from: a.from_val, to: a.to_val, text: a.body, at: a.at }));
     const usesProjects = can(request.user, "projects.access");
+    // Raised from the website form (lib/intake.js): who asked, for staff who see the whole desk.
+    const intake = can(request.user, "tickets.view_all") && one("SELECT * FROM intake_requests WHERE ticket_id = ?", ticket.id);
     return {
       ticket: { ...toApi(ticket), tags: ticketExtras.tagsOf(ticket.id) },
+      websiteRequester: intake ? { name: intake.requester_name, email: intake.requester_email, type: intake.request_type } : null,
       activity,
       linkedTasks: usesProjects ? linkedTasksForTicket(ticket.id) : [],
       linkedTickets: ticketExtras.linksOf(request.user, ticket.id),
