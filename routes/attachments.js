@@ -4,27 +4,15 @@
 //   DELETE /api/attachments/:id           the person who uploaded it, or anyone with "Work tickets"
 // Anyone who can see a ticket can attach files to it and download its files, including the person who
 // raised it (screenshots of an error, a photo of a leak). Files are stored on disk (lib/attachment-files.js).
-const { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS_PER_TICKET, MAX_FILE_NAME_LENGTH } = require("../lib/constants");
+const { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS_PER_TICKET } = require("../lib/constants");
 const { STATUS, fail, created, idFromPath } = require("../lib/http");
 const { can } = require("../lib/access");
-const { saveUpload, removeFile, openForReading, pictureTypeOf, TooLargeError } = require("../lib/attachment-files");
+const { saveUpload, removeFile, openForReading, pictureTypeOf, cleanFileName, TooLargeError } = require("../lib/attachment-files");
 
 const MEGABYTE = 1024 * 1024;
 const LIMIT_TEXT = `${MAX_ATTACHMENT_BYTES / MEGABYTE} MB`;
 const CONTENT_TYPE_PATTERN = /^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/;
 const ATTACHMENT_CACHE_SECONDS = 3600;
-
-// A safe name to show and offer on download: no folders, no control characters, a sensible length.
-function cleanFileName(raw) {
-  let name = "";
-  try { name = decodeURIComponent(String(raw || "")); } catch { name = String(raw || ""); }
-  name = name.split(/[\\/]/).pop().replace(/[\u0000-\u001f\u007f"]/g, "").trim();
-  if (name.length > MAX_FILE_NAME_LENGTH) {
-    const dot = name.lastIndexOf("."), extension = dot > 0 ? name.slice(dot).slice(0, 12) : "";
-    name = name.slice(0, MAX_FILE_NAME_LENGTH - extension.length) + extension;
-  }
-  return name || "file";
-}
 // Content-Disposition with both a plain fallback and the exact UTF-8 name (RFC 6266 / 5987).
 const dispositionFor = (kind, fileName) => `${kind}; filename="${fileName.replace(/[^\x20-\x7e]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 

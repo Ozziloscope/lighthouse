@@ -189,6 +189,9 @@ Settings are environment variables. On a server they live in `/etc/lighthouse/li
 | `SMS_MAX_PER_HOUR` / `SMS_MAX_PER_USER_PER_HOUR` | `60` / `15` | Caps on texts per hour, desk-wide and per person. |
 | `SMS_INCLUDE_DETAILS` | `true` | `false` keeps ticket and task titles out of texts (ID and link only). |
 | `ALERT_DAILY_HOUR` | `8` | Hour (server time) after which daily task due-date reminders go out. |
+| `INTAKE_TOKEN` | *(unset = off)* | Turns on the private website-intake port, for a website form handler to raise tickets. At least 32 characters. See [WEBSITE-INTAKE.md](docs/WEBSITE-INTAKE.md). |
+| `INTAKE_HOST` / `INTAKE_PORT` | `127.0.0.1` / `3001` | Where intake listens. Never point the tunnel or proxy at this port. |
+| `INTAKE_PRINT_GROUP` / `INTAKE_IT_GROUP` | *(unset)* | Resolver group names that website 3D print and IT requests go to. |
 
 ## Security
 
@@ -265,6 +268,7 @@ lib/
   secrets.js           encrypts passwords saved in the app (key in DATA_DIR/lighthouse.key)
   photos.js            checks uploaded photos and strips their hidden metadata
   password-reset.js    emailed one-time passphrases ("Forgot password?")
+  intake.js            private website-intake listener: tickets from the windpoint.net form (docs/WEBSITE-INTAKE.md)
   ticket-extras.js     reads a ticket's tags, links and files; tag rules
   attachment-files.js  where attached files live on disk, and which ones are pictures
   http.js              JSON, cookies, static files, security headers, input checks

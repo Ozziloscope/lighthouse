@@ -15,17 +15,22 @@
 const PROCESS_NAME = "lighthouse";
 process.title = PROCESS_NAME;
 
-const { server, config, db, startBackgroundWork } = require("./lib/app");
+const { server, intakeServer, config, db, startBackgroundWork } = require("./lib/app");
 
 startBackgroundWork();
 server.listen(config.port, config.host, () => {
   console.log(`Lighthouse Service Desk listening on http://${config.host}:${config.port}`);
   if (!config.servedOverHttps) console.log("COOKIE_SECURE is off. Turn it on (COOKIE_SECURE=true) once the site is served over HTTPS.");
 });
+// Website intake: a separate, private port. Never point the tunnel or proxy at it.
+intakeServer?.listen(config.intake.port, config.intake.host, () => {
+  console.log(`Website intake listening on http://${config.intake.host}:${config.intake.port} (private: keep it off the tunnel)`);
+});
 
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, () => {
     server.close();
+    intakeServer?.close();
     try { db.close(); } catch { /* already closed */ }
     process.exit(0);
   });
